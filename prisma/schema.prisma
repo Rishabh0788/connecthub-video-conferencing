@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  passwordHash       String
+  avatar             String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  hostedMeetings     Meeting[]           @relation("MeetingHost")
+  participations     MeetingParticipant[]
+  sharedFiles        SharedFile[]
+  messages           MeetingMessage[]
+}
+
+model Meeting {
+  id           String              @id @default(cuid())
+  roomCode     String              @unique
+  title        String
+  status       MeetingStatus       @default(SCHEDULED)
+  hostId       String
+  host         User                @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  startedAt    DateTime?
+  endedAt      DateTime?
+  participants MeetingParticipant[]
+  files        SharedFile[]
+  messages     MeetingMessage[]
+  @@index([hostId])
+}
+
+model MeetingParticipant {
+  id        String    @id @default(cuid())
+  meetingId String
+  userId    String
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([meetingId, userId])
+  @@index([meetingId])
+}
+
+model SharedFile {
+  id         String   @id @default(cuid())
+  meetingId  String
+  uploaderId String
+  fileName   String
+  storageKey String
+  fileSize   Int
+  mimeType   String
+  createdAt  DateTime @default(now())
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  @@index([meetingId])
+}
+
+model MeetingMessage {
+  id        String   @id @default(cuid())
+  meetingId String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  @@index([meetingId, createdAt])
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}

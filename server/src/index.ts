@@ -1,0 +1,30 @@
+import http from 'node:http';
+import path from 'node:path';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
+import authRoutes from './routes/auth.js';
+import meetingRoutes from './routes/meetings.js';
+import fileRoutes from './routes/files.js';
+import { errorHandler } from './middleware/error.js';
+import { config } from './config.js';
+import { setupSocket } from './socket/index.js';
+
+const app = express();
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({ origin: config.clientUrl, credentials: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'connecthub-server' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/meetings', meetingRoutes);
+app.use('/api', fileRoutes);
+app.use('/uploads', express.static(path.resolve('uploads')));
+app.use(errorHandler);
+
+const server = http.createServer(app);
+setupSocket(server);
+server.listen(config.port, () => console.log(`ConnectHub server running on ${config.serverUrl}`));
